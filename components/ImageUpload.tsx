@@ -1,5 +1,4 @@
-
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import { Upload, FileImage, Video, ImageIcon, FileText, Image as ImageIconLucide, Type, Smartphone, Monitor } from 'lucide-react';
 import { GenerationOptions, VideoDuration, VideoModel, ImageGenModel, InputType, AspectRatio } from '../types';
 
@@ -14,10 +13,22 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onGenerate }) => {
   const [imageModel, setImageModel] = useState<ImageGenModel>('Nano Banana');
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('9:16');
   const [textScript, setTextScript] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       onGenerate(event.target.files[0], { model, duration, imageModel, inputType: 'IMAGE', aspectRatio });
+    }
+  };
+
+  const handleTxtFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setTextScript(e.target?.result as string);
+      };
+      reader.readAsText(file);
     }
   };
 
@@ -190,6 +201,22 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onGenerate }) => {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
+             <div className="flex items-center justify-end">
+               <input 
+                type="file" 
+                accept=".txt" 
+                className="hidden" 
+                ref={fileInputRef} 
+                onChange={handleTxtFileUpload} 
+               />
+               <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs text-zinc-400 hover:text-white bg-zinc-800/50 rounded-lg border border-zinc-700 transition-colors"
+               >
+                 <Upload className="w-3.5 h-3.5" />
+                 대본 파일(.txt) 불러오기
+               </button>
+             </div>
              <div className="w-full relative">
                 <textarea 
                   value={textScript}

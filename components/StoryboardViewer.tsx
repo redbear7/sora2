@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { StoryboardData, ImageGenModel, AspectRatio } from '../types';
-import { Film, Download, Clapperboard, Camera, Zap, Palette, MapPin, FileJson, Copy, Check, Wand2, Loader2, Image as ImageIcon, MessageSquareQuote, FileText, User, LayoutGrid } from 'lucide-react';
-import { generateKeyframeImage, fileToGenerativePart } from '../services/geminiService';
+import { StoryboardData, ImageGenModel, AspectRatio, Headline } from '../types';
+import { Film, Download, Clapperboard, Camera, Zap, Palette, MapPin, FileJson, Copy, Check, Wand2, Loader2, Image as ImageIcon, MessageSquareQuote, FileText, User, LayoutGrid, MoveVertical } from 'lucide-react';
+import { generateKeyframeImage } from '../services/geminiService';
 
 interface StoryboardViewerProps {
   data: StoryboardData;
@@ -14,6 +13,10 @@ interface StoryboardViewerProps {
   originalText?: string;
 }
 
+const TEXT_COLORS = [
+  '#FFFFFF', '#FFFF00', '#EF4444', '#F97316', '#22C55E', '#3B82F6', '#A855F7', '#EC4899', '#000000'
+];
+
 const StoryboardViewer: React.FC<StoryboardViewerProps> = ({ data, originalImage, previewImageUrl, onEditImage, imageModel, aspectRatio, originalText }) => {
   const [copied, setCopied] = useState(false);
   const [scriptCopied, setScriptCopied] = useState(false);
@@ -24,6 +27,11 @@ const StoryboardViewer: React.FC<StoryboardViewerProps> = ({ data, originalImage
   const [sourceScript, setSourceScript] = useState(data.sourceScript || originalText || '');
   const [editableData, setEditableData] = useState<StoryboardData>(data);
 
+  // Styling state for Headline
+  const [headlineColors, setHeadlineColors] = useState({ line1: '#FFFFFF', line2: '#FFFFFF' });
+  const [lineGap, setLineGap] = useState(0);
+  const [selectedLine, setSelectedLine] = useState<'line1' | 'line2'>('line1');
+
   useEffect(() => {
     setEditableData(data);
     setSourceScript(data.sourceScript || originalText || '');
@@ -31,13 +39,17 @@ const StoryboardViewer: React.FC<StoryboardViewerProps> = ({ data, originalImage
 
   const jsonString = useMemo(() => {
     const dataForExport = { ...editableData };
-    if ('sourceScript' in dataForExport) {
-        delete dataForExport.sourceScript;
-    }
     return JSON.stringify(dataForExport, null, 2);
   }, [editableData]);
   
   const jsonByteSize = useMemo(() => new Blob([jsonString]).size, [jsonString]);
+
+  const handleHeadlineChange = (line: keyof Headline, val: string) => {
+    setEditableData(prev => ({
+      ...prev,
+      headline: { ...prev.headline, [line]: val }
+    }));
+  };
 
   const handleDialogueChange = (id: number, newDialogue: string) => {
     setEditableData(prev => ({
@@ -120,16 +132,16 @@ const StoryboardViewer: React.FC<StoryboardViewerProps> = ({ data, originalImage
       ctx.fillRect(0, 0, canvas.width, headerHeight);
       
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 56px "Noto Sans KR", sans-serif';
+      ctx.font = 'bold 56px sans-serif';
       ctx.textBaseline = 'top';
       ctx.fillText(`CINEMATIC STORYBOARD (${aspectRatio})`, 60, 50);
 
       ctx.fillStyle = '#818cf8'; 
-      ctx.font = 'bold 28px "Noto Sans KR", sans-serif';
+      ctx.font = 'bold 28px sans-serif';
       ctx.fillText(`THEME: ${editableData.theme.theme}`, 60, 130);
 
       ctx.fillStyle = '#a1a1aa'; 
-      ctx.font = 'italic 24px "Noto Sans KR", sans-serif';
+      ctx.font = 'italic 24px sans-serif';
       const logline = `LOGLINE: "${editableData.theme.logline}"`;
       ctx.fillText(logline, 60, 180);
 
@@ -190,7 +202,7 @@ const StoryboardViewer: React.FC<StoryboardViewerProps> = ({ data, originalImage
         ctx.stroke();
 
         ctx.fillStyle = '#22d3ee'; 
-        ctx.font = 'bold 20px "Noto Sans KR", sans-serif';
+        ctx.font = 'bold 20px sans-serif';
         ctx.textBaseline = 'middle';
         ctx.fillText(`KF #${String(kf.id).padStart(2, '0')}`, x + 15, y + cellHeight - barHeight/2);
 
@@ -229,18 +241,6 @@ const StoryboardViewer: React.FC<StoryboardViewerProps> = ({ data, originalImage
               <ImageIcon className="w-4 h-4" />
               모든 장면 시각화 ({imageModel})
             </button>
-            {(originalImage || previewImageUrl) && (
-              <button 
-                onClick={onEditImage}
-                className="flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg text-sm font-medium transition-colors border border-zinc-700"
-              >
-                <Palette className="w-4 h-4" />
-                이미지 AI 편집
-              </button>
-            )}
-            
-            <div className="h-6 w-px bg-zinc-700 mx-2 hidden md:block"></div>
-
             <button 
               onClick={downloadMasterBoard}
               disabled={isGeneratingMaster}
@@ -249,7 +249,6 @@ const StoryboardViewer: React.FC<StoryboardViewerProps> = ({ data, originalImage
               {isGeneratingMaster ? <Loader2 className="w-4 h-4 animate-spin" /> : <LayoutGrid className="w-4 h-4" />}
               마스터 보드 저장
             </button>
-
             <button 
               onClick={downloadJson}
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition-colors shadow-lg shadow-indigo-900/20"
@@ -260,38 +259,78 @@ const StoryboardViewer: React.FC<StoryboardViewerProps> = ({ data, originalImage
         </div>
       </div>
 
-      {/* Stacked Breakdown Sections */}
-      <div className="flex flex-col gap-8">
-        <div className="w-full">
-          {displayImageUrl ? (
-            <div className="relative group rounded-xl overflow-hidden border border-zinc-700 shadow-2xl max-w-lg mx-auto">
-              <img src={displayImageUrl} alt="Reference" className="w-full h-auto object-cover" />
-              <div className="absolute top-2 left-2 bg-black/70 px-2 py-1 rounded text-xs font-mono text-white">REFERENCE IMAGE</div>
-            </div>
-          ) : (
-            <div className="bg-zinc-900 p-6 rounded-xl border border-zinc-700 shadow-2xl flex flex-col">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2 text-indigo-400">
-                  <FileText className="w-5 h-5" />
-                  <span className="text-xs font-bold uppercase">Source Script (Editable)</span>
-                </div>
-                <button 
-                  onClick={copySourceScript}
-                  className="p-1.5 hover:bg-zinc-800 rounded text-zinc-500 hover:text-indigo-400 transition-colors"
-                >
-                  {scriptCopied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                </button>
-              </div>
-              <textarea
-                value={sourceScript}
-                onChange={(e) => setSourceScript(e.target.value)}
-                rows={10}
-                className="w-full bg-zinc-950/30 border border-zinc-800 rounded-lg p-4 text-sm text-zinc-300 italic whitespace-pre-wrap leading-relaxed focus:outline-none focus:ring-1 focus:ring-indigo-500/50 resize-none overflow-y-auto custom-scrollbar shadow-inner"
-              />
-            </div>
-          )}
-        </div>
+      {/* Headline Editor Section (NEW) */}
+      <div className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800 space-y-6">
+         <div className="flex items-center justify-between">
+           <h3 className="text-lg font-bold text-white flex items-center gap-2">
+             <Palette className="w-4 h-4 text-pink-400" /> 썸네일 헤드라인 설정
+           </h3>
+         </div>
 
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            {/* Visual Preview */}
+            <div className="relative aspect-video bg-black rounded-lg overflow-hidden border border-zinc-700 shadow-2xl flex flex-col items-center justify-center p-4">
+               {displayImageUrl && <img src={displayImageUrl} className="absolute inset-0 w-full h-full object-cover opacity-50 blur-[2px]" alt="Background" />}
+               <div className="relative z-10 w-full flex flex-col items-center" style={{ gap: `${lineGap}px` }}>
+                  <input 
+                    type="text" 
+                    value={editableData.headline.line1} 
+                    onChange={(e) => handleHeadlineChange('line1', e.target.value)}
+                    onFocus={() => setSelectedLine('line1')}
+                    style={{ color: headlineColors.line1 }}
+                    className={`w-full bg-transparent text-center text-4xl font-black outline-none border-b border-transparent focus:border-white/30 transition-all drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] ${selectedLine === 'line1' ? 'scale-105' : 'opacity-80'}`}
+                  />
+                  <input 
+                    type="text" 
+                    value={editableData.headline.line2} 
+                    onChange={(e) => handleHeadlineChange('line2', e.target.value)}
+                    onFocus={() => setSelectedLine('line2')}
+                    style={{ color: headlineColors.line2 }}
+                    className={`w-full bg-transparent text-center text-4xl font-black outline-none border-b border-transparent focus:border-white/30 transition-all drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)] ${selectedLine === 'line2' ? 'scale-105' : 'opacity-80'}`}
+                  />
+               </div>
+            </div>
+
+            {/* Controls */}
+            <div className="space-y-6">
+               <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                    <MoveVertical className="w-3 h-3" /> 줄 간격 (Gap)
+                  </div>
+                  <input 
+                    type="range" min="-40" max="80" step="1" 
+                    value={lineGap} 
+                    onChange={(e) => setLineGap(parseInt(e.target.value))}
+                    className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                  <div className="flex justify-between text-[10px] text-zinc-600">
+                    <span>-40px</span>
+                    <span>{lineGap}px</span>
+                    <span>80px</span>
+                  </div>
+               </div>
+
+               <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-bold text-zinc-500 uppercase tracking-widest">
+                    <Palette className="w-3 h-3" /> 글자 색상 ({selectedLine === 'line1' ? '상단' : '하단'})
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {TEXT_COLORS.map(color => (
+                      <button
+                        key={color}
+                        onClick={() => setHeadlineColors(prev => ({ ...prev, [selectedLine]: color }))}
+                        className={`w-6 h-6 rounded-full border border-white/20 transition-all ${headlineColors[selectedLine] === color ? 'scale-125 ring-2 ring-indigo-500' : 'hover:scale-110'}`}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+               </div>
+            </div>
+         </div>
+      </div>
+
+      {/* Breakdown Details */}
+      <div className="flex flex-col gap-8">
         <div className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800 space-y-4">
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
             <MapPin className="w-4 h-4 text-emerald-400" /> 장면 분석
@@ -327,14 +366,13 @@ const StoryboardViewer: React.FC<StoryboardViewerProps> = ({ data, originalImage
         </div>
 
         <div className="bg-gradient-to-br from-zinc-900 to-zinc-900/50 p-6 rounded-xl border border-zinc-800 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-600/10 blur-3xl rounded-full pointer-events-none"></div>
           <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
             <Clapperboard className="w-5 h-5 text-indigo-400" /> 테마 및 스토리
           </h3>
           <div className="space-y-6">
             <div>
               <p className="text-indigo-400 text-xs font-bold tracking-widest uppercase mb-1">Main Theme</p>
-              <h4 className="text-3xl font-bold text-white mb-3 flex items-center gap-2">
+              <h4 className="text-3xl font-bold text-white mb-3">
                 {editableData.theme.theme}
               </h4>
               <p className="text-zinc-400 text-lg italic leading-relaxed">"{editableData.theme.logline}"</p>
@@ -349,46 +387,36 @@ const StoryboardViewer: React.FC<StoryboardViewerProps> = ({ data, originalImage
             </div>
           </div>
         </div>
-
-        <div className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800">
-          <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <Camera className="w-5 h-5 text-amber-400" /> 시네마틱 접근 방식
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div className="space-y-1">
-               <span className="text-zinc-500 text-xs uppercase font-bold">Shot Progression</span>
-               <p className="text-zinc-300">{editableData.approach.shotProgression}</p>
-            </div>
-            <div className="space-y-1">
-               <span className="text-zinc-500 text-xs uppercase font-bold">Camera Movement</span>
-               <p className="text-zinc-300">{editableData.approach.cameraMovement}</p>
-            </div>
-            <div className="space-y-1">
-               <span className="text-zinc-500 text-xs uppercase font-bold">Lens & Exposure</span>
-               <p className="text-zinc-300">{editableData.approach.lensExposure}</p>
-            </div>
-            <div className="space-y-1">
-               <span className="text-zinc-500 text-xs uppercase font-bold">Light & Color</span>
-               <p className="text-zinc-300">{editableData.approach.lightColor}</p>
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* Keyframes Section (1 per row) */}
+      {/* Keyframes Section */}
       <div className="space-y-6">
         <h3 className="text-xl font-bold text-white flex items-center gap-2 pb-4 border-b border-zinc-800">
           <Film className="w-5 h-5 text-rose-400" /> 키프레임 시퀀스 (Keyframes)
         </h3>
         
         <div className="flex flex-col gap-12">
-          {editableData.keyframes.map((kf) => (
+          {editableData.keyframes.map((kf, index) => (
             <div key={kf.id} className="bg-zinc-900 group hover:bg-zinc-800/50 transition-colors rounded-xl border border-zinc-800 overflow-hidden grid grid-cols-1 md:grid-cols-2 gap-0 shadow-2xl">
               
               {/* Visual Side */}
               <div className={`bg-black border-r border-zinc-800 relative group/image overflow-hidden mx-auto w-full ${aspectRatio === '16:9' ? 'aspect-video md:h-auto' : 'aspect-[9/16] md:h-[600px] max-w-[340px] md:max-w-none'}`}>
                 {generatedImages[kf.id] ? (
-                  <img src={generatedImages[kf.id]} alt={`Keyframe ${kf.id}`} className="w-full h-full object-cover" />
+                  <>
+                    <img src={generatedImages[kf.id]} alt={`Keyframe ${kf.id}`} className="w-full h-full object-cover" />
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const link = document.createElement('a');
+                        link.href = generatedImages[kf.id];
+                        link.download = `${String(index + 1).padStart(2, '0')}_Scene_${kf.shotType.replace(/\s+/g, '_')}.png`;
+                        link.click();
+                      }}
+                      className="absolute bottom-4 right-4 p-2 bg-black/60 rounded-full text-white opacity-0 group-hover/image:opacity-100 transition-opacity"
+                    >
+                      <Download className="w-4 h-4" />
+                    </button>
+                  </>
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center bg-zinc-950">
                     {loadingImages[kf.id] ? (
@@ -406,7 +434,7 @@ const StoryboardViewer: React.FC<StoryboardViewerProps> = ({ data, originalImage
                 )}
                 
                 <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-start bg-gradient-to-b from-black/90 to-transparent">
-                  <span className="font-mono text-rose-400 text-xl font-bold drop-shadow-lg">KF #{String(kf.id).padStart(2, '0')}</span>
+                  <span className="font-mono text-rose-400 text-xl font-bold drop-shadow-lg">#{String(index + 1).padStart(2, '0')}</span>
                   <span className="text-xs bg-zinc-800/90 px-3 py-1.5 rounded-full text-zinc-200 border border-zinc-600/50 backdrop-blur-md">{kf.shotType}</span>
                 </div>
               </div>
@@ -418,7 +446,7 @@ const StoryboardViewer: React.FC<StoryboardViewerProps> = ({ data, originalImage
                     <p className="text-zinc-200 text-lg leading-relaxed">{kf.action}</p>
                  </div>
 
-                 <div className="bg-zinc-950/80 p-5 rounded-xl border border-zinc-800/50 flex flex-col gap-3 focus-within:ring-1 focus-within:ring-indigo-500/50 transition-all shadow-inner">
+                 <div className="bg-zinc-950/80 p-5 rounded-xl border border-zinc-800/50 flex flex-col gap-3 shadow-inner">
                     <div className="flex items-center gap-2">
                         <MessageSquareQuote className="w-4 h-4 text-indigo-400" />
                         <span className="text-[10px] font-bold uppercase text-indigo-500 tracking-tighter">Dialogue (KR)</span>
@@ -436,53 +464,16 @@ const StoryboardViewer: React.FC<StoryboardViewerProps> = ({ data, originalImage
                         <Zap className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
                         <span className="text-zinc-300"><span className="text-zinc-500 font-bold uppercase text-[10px] block mb-1">Composition</span> {kf.composition}</span>
                     </div>
-                    <div className="flex items-start gap-3 text-sm p-3 bg-zinc-950/30 rounded-lg border border-zinc-800/50">
-                        <Camera className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                        <span className="text-zinc-300"><span className="text-zinc-500 font-bold uppercase text-[10px] block mb-1">Camera & Movement</span> {kf.camera}</span>
-                    </div>
-                    <div className="flex items-start gap-3 text-sm p-3 bg-zinc-950/30 rounded-lg border border-zinc-800/50">
-                        <Palette className="w-4 h-4 text-purple-500 shrink-0 mt-0.5" />
-                        <span className="text-zinc-300"><span className="text-zinc-500 font-bold uppercase text-[10px] block mb-1">Lighting & Color</span> {kf.lighting}</span>
-                    </div>
                  </div>
 
-                 <div className="flex justify-between items-center pt-6 border-t border-zinc-800 mt-auto">
-                    <div className="flex flex-col">
-                        <span className="text-[10px] font-bold uppercase text-zinc-600">Duration</span>
-                        <span className="text-sm font-mono text-zinc-400">{kf.duration}</span>
-                    </div>
-                    <div className="flex flex-col text-right">
-                        <span className="text-[10px] font-bold uppercase text-zinc-600">Sound / SFX</span>
-                        <span className="text-sm text-zinc-400 italic">{kf.sound}</span>
-                    </div>
+                 <div className="flex justify-between items-center pt-6 border-t border-zinc-800 mt-auto text-xs text-zinc-500">
+                    <span>Duration: {kf.duration}</span>
+                    <span>Sound: {kf.sound}</span>
                  </div>
               </div>
             </div>
           ))}
         </div>
-      </div>
-
-      {/* JSON Viewer */}
-      <div className="space-y-4 pt-8 border-t border-zinc-800">
-        <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-              <FileJson className="w-5 h-5 text-zinc-400" /> 
-              최종 JSON 데이터 ({aspectRatio})
-              <span className={`text-sm font-mono font-normal ${jsonByteSize > 3000 ? 'text-red-500 font-bold' : 'text-zinc-500'}`}>
-                ({jsonByteSize.toLocaleString()} bytes)
-              </span>
-            </h3>
-            <button
-                onClick={copyJsonToClipboard}
-                className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-medium transition-colors border border-zinc-700"
-            >
-                {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                {copied ? '복사됨' : 'JSON 복사'}
-            </button>
-        </div>
-        <pre className="bg-zinc-950 p-6 rounded-xl border border-zinc-800 overflow-x-auto text-[10px] md:text-xs font-mono text-zinc-400 leading-relaxed max-h-[500px] shadow-inner shadow-black/50">
-            {jsonString}
-        </pre>
       </div>
     </div>
   );

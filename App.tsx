@@ -1,14 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import ImageUpload from './components/ImageUpload';
 import StoryboardViewer from './components/StoryboardViewer';
 import ImageEditor from './components/ImageEditor';
 import HistoryList from './components/HistoryList';
 import { generateStoryboard, fileToGenerativePart } from './services/geminiService';
 import { AppState, StoryboardData, GenerationOptions, SavedStoryboard } from './types';
-import { Clapperboard, Loader2, Info, LayoutList, Plus } from 'lucide-react';
+import { Clapperboard, Loader2, Settings, LayoutList, Plus, AlertCircle, CheckCircle2 } from 'lucide-react';
 
-const STORAGE_KEY = 'cinescript_history';
+const STORAGE_KEY = 'cinescript_history_v2';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>(AppState.UPLOAD);
@@ -19,22 +19,27 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<GenerationOptions | null>(null);
   const [history, setHistory] = useState<SavedStoryboard[]>([]);
+  const [hasKey, setHasKey] = useState<boolean | null>(null);
 
-  // Initialize and check for "New Window" mode (compatibility)
+  // Check API key status on mount
   useEffect(() => {
+    const checkKey = async () => {
+      try {
+        const status = await (window as any).aistudio?.hasSelectedApiKey();
+        setHasKey(!!status);
+      } catch (e) {
+        console.warn("API Key check failed", e);
+      }
+    };
+    checkKey();
+
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      const parsed = JSON.parse(saved) as SavedStoryboard[];
-      setHistory(parsed);
-
-      // Check if opening a specific ID via URL
-      const params = new URLSearchParams(window.location.search);
-      const id = params.get('id');
-      if (id) {
-        const found = parsed.find(item => item.id === id);
-        if (found) {
-          handleViewHistoryItem(found);
-        }
+      try {
+        const parsed = JSON.parse(saved) as SavedStoryboard[];
+        setHistory(parsed);
+      } catch (e) {
+        console.error("Failed to parse history", e);
       }
     }
   }, []);
@@ -82,29 +87,29 @@ const App: React.FC = () => {
     localStorage.removeItem(STORAGE_KEY);
   };
 
-  const autoDownloadTxt = (data: StoryboardData) => {
-    const now = new Date();
-    const yy = String(now.getFullYear()).slice(-2);
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const hh = String(now.getHours()).padStart(2, '0');
-    const min = String(now.getMinutes()).padStart(2, '0');
-    
-    const fileName = `storyboard_${yy}${mm}${dd}_${hh}${min}.txt`;
-    const content = JSON.stringify(data, null, 2);
-    
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const handleOpenSettings = async () => {
+    try {
+      if ((window as any).aistudio && typeof (window as any).aistudio.openSelectKey === 'function') {
+        await (window as any).aistudio.openSelectKey();
+        // Assume success and update state
+        setHasKey(true);
+      } else {
+        alert("이 환경에서는 API 키 설정을 지원하지 않습니다.");
+      }
+    } catch (e) {
+      console.error("Failed to open API key settings", e);
+    }
   };
 
   const handleGenerate = async (input: File | string, options: GenerationOptions) => {
+    // Proactively check for API key before starting
+    const currentKeyStatus = await (window as any).aistudio?.hasSelectedApiKey();
+    if (!currentKeyStatus) {
+      setError("API 키가 설정되지 않았습니다. 설정 창에서 API 키를 먼저 선택해주세요.");
+      await handleOpenSettings();
+      return;
+    }
+
     if (input instanceof File) {
       setSelectedImage(input);
       setSelectedText('');
@@ -120,46 +125,26 @@ const App: React.FC = () => {
     try {
       const data = await generateStoryboard(input, options);
       setStoryboardData(data);
-      autoDownloadTxt(data);
       await saveToHistory(data, options, input instanceof File ? input : null);
       setAppState(AppState.STORYBOARD);
-    } catch (err) {
-      console.error(err);
-      setError("스토리보드를 생성하는 도중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+    } catch (err: any) {
+      console.error("Generation error:", err);
+      
+      if (err.message?.includes("Requested entity was not found.")) {
+        setError("유효하지 않은 API 키이거나 프로젝트를 찾을 수 없습니다. 키를 다시 설정해주세요.");
+        await handleOpenSettings();
+      } else {
+        let msg = "스토리보드를 생성하는 도중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+        if (err.message?.includes("API key")) msg = "API 키 인증에 실패했습니다. 설정에서 키를 확인해주세요.";
+        else if (err.message?.includes("JSON")) msg = "AI가 유효한 데이터 형식을 생성하지 못했습니다. 다시 시도해주세요.";
+        setError(msg);
+      }
+      
       setAppState(AppState.UPLOAD);
     }
   };
 
-  const downloadManual = () => {
-    const manualContent = `
-# CineScript AI 사용자 지침서
-
-CineScript AI를 사용하여 한 장의 이미지나 텍스트 대본으로 전문적인 시네마틱 스토리보드를 제작하는 방법입니다.
-
-## 1. 주요 기능
-- **비율 선택:** 세로(9:16) 또는 가로(16:9) 구성을 선택할 수 있습니다.
-- **자동 저장:** 생성 완료 시 JSON 데이터가 .txt 파일로 즉시 다운로드됩니다.
-- **히스토리 관리:** 생성된 모든 스토리보드는 히스토리에 저장되며 언제든 현재창에서 열어볼 수 있습니다.
-- **시각화:** 각 장면의 구도와 연출에 맞게 이미지를 생성합니다.
-
-## 2. 주의 사항
-- **구도 준수:** 생성된 JSON 데이터의 첫 composition 필드에 선택한 비율이 명시됩니다.
-- **언어:** 기술 데이터는 영문으로, 메인 테마와 로그라인, 인물 대사만 한글로 구성됩니다.
-    `;
-    const blob = new Blob([manualContent], { type: 'text/markdown;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'CineScript_AI_지침서.md';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
   const handleReset = () => {
-    if (window.location.search.includes('id=')) {
-        window.history.replaceState({}, '', window.location.pathname);
-    }
     setAppState(AppState.UPLOAD);
     setSelectedImage(null);
     setPreviewImageData(undefined);
@@ -167,24 +152,6 @@ CineScript AI를 사용하여 한 장의 이미지나 텍스트 대본으로 전
     setStoryboardData(null);
     setError(null);
     setSelectedOptions(null);
-  };
-
-  const toggleHistory = () => {
-    if (appState === AppState.HISTORY) {
-        setAppState(AppState.UPLOAD);
-    } else {
-        setAppState(AppState.HISTORY);
-    }
-  };
-
-  const enterEditor = () => {
-    if (selectedImage || previewImageData) {
-        setAppState(AppState.EDITOR);
-    }
-  };
-
-  const backToStoryboard = () => {
-    setAppState(AppState.STORYBOARD);
   };
 
   return (
@@ -201,7 +168,7 @@ CineScript AI를 사용하여 한 장의 이미지나 텍스트 대본으로 전
           </div>
           <div className="flex items-center gap-2 md:gap-4">
             <button 
-                onClick={toggleHistory} 
+                onClick={() => setAppState(appState === AppState.HISTORY ? AppState.UPLOAD : AppState.HISTORY)} 
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
                     appState === AppState.HISTORY 
                     ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-400' 
@@ -210,8 +177,18 @@ CineScript AI를 사용하여 한 장의 이미지나 텍스트 대본으로 전
             >
               <LayoutList className="w-3.5 h-3.5" /> 히스토리
             </button>
-            <button onClick={downloadManual} className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-lg text-xs font-medium border border-zinc-800 transition-colors">
-              <Info className="w-3.5 h-3.5" /> 지침서
+            <button 
+              onClick={handleOpenSettings} 
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors shadow-sm ${
+                hasKey === false 
+                ? 'bg-rose-900/20 border-rose-500/50 text-rose-400 animate-pulse' 
+                : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800'
+              }`}
+            >
+              <Settings className="w-3.5 h-3.5" /> 
+              설정
+              {hasKey === false && <AlertCircle className="w-3 h-3" />}
+              {hasKey === true && <CheckCircle2 className="w-3 h-3 text-emerald-500" />}
             </button>
           </div>
         </div>
@@ -221,13 +198,21 @@ CineScript AI를 사용하여 한 장의 이미지나 텍스트 대본으로 전
         <div className="w-full relative z-10">
           {appState === AppState.UPLOAD && (
             <div className="animate-fade-in w-full">
-               <div className="text-center mb-12 space-y-4">
-                 <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight">
-                   이미지 또는 대본을 <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">스토리</span>로 만드세요
+               <div className="text-center mb-12">
+                 <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
+                   K-Drama 스타일 <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">스토리보드</span>
                  </h2>
+                 <p className="text-zinc-500">한국인 배우, 현대적 복장, 2줄 헤드라인이 적용된 전문 스토리보드 제작</p>
+                 {hasKey === false && (
+                   <div className="mt-6 flex items-center justify-center gap-2 text-rose-400 text-sm bg-rose-950/20 py-2 px-4 rounded-full border border-rose-900/30 w-fit mx-auto animate-bounce">
+                     <AlertCircle className="w-4 h-4" />
+                     <span>상단 '설정'에서 Gemini API 키를 먼저 연결해주세요.</span>
+                   </div>
+                 )}
                </div>
                {error && (
-                 <div className="max-w-2xl mx-auto mb-6 p-4 bg-rose-950/30 border border-rose-900/50 rounded-lg text-rose-300 text-center text-sm">
+                 <div className="max-w-2xl mx-auto mb-6 p-4 bg-rose-950/30 border border-rose-900/50 rounded-lg text-rose-300 text-center text-sm flex items-center justify-center gap-3">
+                   <AlertCircle className="w-4 h-4 shrink-0" />
                    {error}
                  </div>
                )}
@@ -271,7 +256,7 @@ CineScript AI를 사용하여 한 장의 이미지나 텍스트 대본으로 전
                 originalImage={selectedImage}
                 previewImageUrl={previewImageData}
                 originalText={selectedText}
-                onEditImage={enterEditor}
+                onEditImage={() => setAppState(AppState.EDITOR)}
                 imageModel={selectedOptions?.imageModel || 'Nano Banana'}
                 aspectRatio={selectedOptions?.aspectRatio || '9:16'}
             />
@@ -281,7 +266,7 @@ CineScript AI를 사용하여 한 장의 이미지나 텍스트 대본으로 전
             <ImageEditor 
                 originalImage={selectedImage} 
                 previewImageUrl={previewImageData}
-                onBack={backToStoryboard} 
+                onBack={() => setAppState(AppState.STORYBOARD)} 
             />
           )}
         </div>

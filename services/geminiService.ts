@@ -18,6 +18,14 @@ export const fileToGenerativePart = async (file: File): Promise<string> => {
 const storyboardSchema = {
   type: Type.OBJECT,
   properties: {
+    headline: {
+      type: Type.OBJECT,
+      properties: {
+        line1: { type: Type.STRING, description: "Thumbnail top line text" },
+        line2: { type: Type.STRING, description: "Thumbnail bottom line text" }
+      },
+      required: ["line1", "line2"]
+    },
     breakdown: {
       type: Type.OBJECT,
       properties: {
@@ -76,9 +84,10 @@ const storyboardSchema = {
       }
     }
   },
-  required: ["breakdown", "theme", "approach", "keyframes"]
+  required: ["headline", "breakdown", "theme", "approach", "keyframes"]
 };
 
+// Creating fresh GoogleGenAI instance inside the function to ensure the latest API key is used
 export const generateStoryboard = async (input: File | string, options: GenerationOptions): Promise<StoryboardData> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
@@ -94,28 +103,27 @@ export const generateStoryboard = async (input: File | string, options: Generati
   }
 
   const prompt = `
-    Role: Award-winning trailer director + cinematographer specialized in cinematic content.
-    Task: Analyze the input and output a cinematic storyboard JSON for video generation models (like VEO or Sora).
+    Role: Professional Cinematic Storyboard Director.
+    Task: Analyze the input and generate a storyboard for a Korean Drama/Film context.
     
+    NATIONALITY & STYLE:
+    - Characters MUST be described as "South Korean" with contemporary Korean hairstyles and features.
+    - Clothing: Modern, stylish, or business attire.
+    - **CRITICAL RESTRICTION**: STRICTLY NO HANBOK (Traditional Clothing) unless the scene is explicitly a wedding (결혼식) or funeral (장례식).
+    
+    HEADLINE:
+    - Create 2 powerful lines for a YouTube/Video thumbnail. 
+    - Keep it under 15 characters per line. Korean language.
+
     CRITICAL MANDATE - ${options.aspectRatio} ASPECT RATIO:
-    1. The ENTIRE storyboard and ALL technical descriptions MUST strictly adhere to a ${isHorizontal ? '16:9 Horizontal (Widescreen)' : '9:16 Vertical (Mobile)'} format.
-    2. Every scene, composition, and camera movement must be optimized for this specific frame.
-    3. The first keyframe's 'composition' field MUST start with the text: "[${options.aspectRatio} ${isHorizontal ? '가로' : '세로'} 구도 준수]".
-    4. Ensure all action and blocking descriptions assume ${isHorizontal ? 'horizontal' : 'vertical'} space.
+    - Adhere strictly to ${options.aspectRatio} format.
+    - First keyframe composition must include: "[${options.aspectRatio} ${isHorizontal ? '가로' : '세로'} 구도 준수]".
 
-    LANGUAGE RULES:
-    1. Technical fields (breakdown, approach, action, camera, lighting, sound, etc.) MUST be in ENGLISH.
-    2. The 'theme' (Main Theme), 'logline' (Story Logline), and 'dialogue' fields MUST be in KOREAN.
+    LANGUAGE:
+    - theme, logline, dialogue: KOREAN.
+    - Technical fields (breakdown, action, etc.): ENGLISH.
     
-    CONSTRAINTS:
-    1. Audio: "No background music" (Focus on foley/dialogue).
-    2. Byte Limit: Total JSON output size MUST be under 3,000 bytes. Be extremely concise.
-
-    Keyframes Requirements:
-    - Target Video Duration: ${options.duration}.
-    - Include variation in shots (Wide, Close-up, POV, etc.).
-       
-    Output strictly valid JSON matching the schema.
+    Output strictly valid JSON.
   `;
 
   contentParts.push({ text: prompt });
@@ -126,7 +134,7 @@ export const generateStoryboard = async (input: File | string, options: Generati
     config: {
       responseMimeType: "application/json",
       responseSchema: storyboardSchema,
-      temperature: 0.4, 
+      temperature: 0.5, 
     }
   });
 
@@ -138,6 +146,7 @@ export const generateStoryboard = async (input: File | string, options: Generati
   return data;
 };
 
+// Creating fresh GoogleGenAI instance inside the function to ensure the latest API key is used
 export const editImageWithPrompt = async (originalFile: File, prompt: string): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const base64Data = await fileToGenerativePart(originalFile);
@@ -146,7 +155,7 @@ export const editImageWithPrompt = async (originalFile: File, prompt: string): P
     contents: {
       parts: [
         { inlineData: { data: base64Data, mimeType: originalFile.type } },
-        { text: prompt },
+        { text: `${prompt}. Cinematic style, South Korean actors, no hanbok unless specified.` },
       ],
     },
   });
@@ -162,6 +171,7 @@ export const editImageWithPrompt = async (originalFile: File, prompt: string): P
   throw new Error("No image generated/edited.");
 };
 
+// Creating fresh GoogleGenAI instance inside the function to ensure the latest API key is used
 export const generateKeyframeImage = async (
   prompt: string, 
   originalFile: File | null,
@@ -171,7 +181,7 @@ export const generateKeyframeImage = async (
 ): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const modelName = modelType === 'Nano Banana Pro' ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
-  const fullPrompt = `Cinematic movie shot (${aspectRatio}). ${characterContext ? `Character: ${characterContext}` : ''} No Hanbok. ${prompt} 8k, detailed.`;
+  const fullPrompt = `Cinematic shot (${aspectRatio}). Korean characters. No Hanbok (Traditional clothes) unless ritual. ${characterContext ? `Character details: ${characterContext}.` : ''} ${prompt} 8k, photorealistic.`;
   const parts: any[] = [{ text: fullPrompt }];
   
   if (originalFile) {
