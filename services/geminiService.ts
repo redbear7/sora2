@@ -2,6 +2,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { StoryboardData, GenerationOptions, ImageGenModel, AspectRatio } from "../types";
 
+const LOCAL_KEY_NAME = 'cinescript_api_key';
+
+const getApiKey = () => {
+  const savedKey = localStorage.getItem(LOCAL_KEY_NAME);
+  return savedKey || process.env.API_KEY || "";
+};
+
 export const fileToGenerativePart = async (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -87,9 +94,11 @@ const storyboardSchema = {
   required: ["headline", "breakdown", "theme", "approach", "keyframes"]
 };
 
-// Creating fresh GoogleGenAI instance inside the function to ensure the latest API key is used
 export const generateStoryboard = async (input: File | string, options: GenerationOptions): Promise<StoryboardData> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("API 키가 설정되지 않았습니다.");
+  
+  const ai = new GoogleGenAI({ apiKey });
   
   const isImageInput = options.inputType === 'IMAGE';
   const isHorizontal = options.aspectRatio === '16:9';
@@ -146,9 +155,11 @@ export const generateStoryboard = async (input: File | string, options: Generati
   return data;
 };
 
-// Creating fresh GoogleGenAI instance inside the function to ensure the latest API key is used
 export const editImageWithPrompt = async (originalFile: File, prompt: string): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("API 키가 설정되지 않았습니다.");
+  
+  const ai = new GoogleGenAI({ apiKey });
   const base64Data = await fileToGenerativePart(originalFile);
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash-image', 
@@ -171,7 +182,6 @@ export const editImageWithPrompt = async (originalFile: File, prompt: string): P
   throw new Error("No image generated/edited.");
 };
 
-// Creating fresh GoogleGenAI instance inside the function to ensure the latest API key is used
 export const generateKeyframeImage = async (
   prompt: string, 
   originalFile: File | null,
@@ -179,7 +189,10 @@ export const generateKeyframeImage = async (
   aspectRatio: AspectRatio,
   characterContext?: string
 ): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error("API 키가 설정되지 않았습니다.");
+
+  const ai = new GoogleGenAI({ apiKey });
   const modelName = modelType === 'Nano Banana Pro' ? 'gemini-3-pro-image-preview' : 'gemini-2.5-flash-image';
   const fullPrompt = `Cinematic shot (${aspectRatio}). Korean characters. No Hanbok (Traditional clothes) unless ritual. ${characterContext ? `Character details: ${characterContext}.` : ''} ${prompt} 8k, photorealistic.`;
   const parts: any[] = [{ text: fullPrompt }];
