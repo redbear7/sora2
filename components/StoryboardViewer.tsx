@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { StoryboardData, ImageGenModel, AspectRatio, Headline } from '../types';
-import { Film, Download, Clapperboard, Camera, Zap, Palette, MapPin, FileJson, Copy, Check, Wand2, Loader2, Image as ImageIcon, MessageSquareQuote, FileText, User, LayoutGrid, MoveVertical } from 'lucide-react';
+import { Film, Download, Clapperboard, Camera, Zap, Palette, MapPin, FileJson, Copy, Check, Wand2, Loader2, Image as ImageIcon, MessageSquareQuote, FileText, User, LayoutGrid, MoveVertical, Braces } from 'lucide-react';
 import { generateKeyframeImage } from '../services/geminiService';
 
 interface StoryboardViewerProps {
@@ -75,13 +76,6 @@ const StoryboardViewer: React.FC<StoryboardViewerProps> = ({ data, originalImage
     navigator.clipboard.writeText(jsonString).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  const copySourceScript = () => {
-    navigator.clipboard.writeText(sourceScript).then(() => {
-      setScriptCopied(true);
-      setTimeout(() => setScriptCopied(false), 2000);
     });
   };
 
@@ -259,7 +253,7 @@ const StoryboardViewer: React.FC<StoryboardViewerProps> = ({ data, originalImage
         </div>
       </div>
 
-      {/* Headline Editor Section (NEW) */}
+      {/* Headline Editor Section */}
       <div className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800 space-y-6">
          <div className="flex items-center justify-between">
            <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -473,6 +467,49 @@ const StoryboardViewer: React.FC<StoryboardViewerProps> = ({ data, originalImage
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Live JSON Output Section */}
+      <div className="space-y-6 pt-12 border-t border-zinc-800">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              <Braces className="w-5 h-5 text-indigo-400" /> Production JSON Output
+            </h3>
+            <p className="text-xs text-zinc-500">실시간 수정 사항이 반영된 최종 비디오 생성용 데이터입니다.</p>
+          </div>
+          <div className="flex items-center gap-3">
+             <span className="text-[10px] font-mono text-zinc-600 bg-zinc-900 px-2 py-1 rounded border border-zinc-800">
+               Size: {(jsonByteSize / 1024).toFixed(2)} KB
+             </span>
+             <button 
+               onClick={copyJsonToClipboard}
+               className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-medium border border-zinc-700 transition-all shadow-sm"
+             >
+               {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-zinc-400" />}
+               {copied ? '복사 완료' : 'JSON 복사'}
+             </button>
+          </div>
+        </div>
+
+        <div className="relative group">
+          <div className="absolute inset-0 bg-indigo-500/5 blur-3xl rounded-full opacity-20 -z-10" />
+          <div className="bg-zinc-950/80 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-sm">
+            <div className="flex items-center justify-between px-4 py-2 bg-zinc-900/50 border-b border-zinc-800">
+              <div className="flex gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-rose-500/30" />
+                <div className="w-2.5 h-2.5 rounded-full bg-amber-500/30" />
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/30" />
+              </div>
+              <span className="text-[10px] font-bold text-zinc-600 tracking-widest uppercase">application/json</span>
+            </div>
+            <div className="p-6 max-h-[600px] overflow-y-auto custom-scrollbar">
+              <pre className="text-xs md:text-sm font-mono leading-relaxed text-indigo-300/90 whitespace-pre-wrap">
+                {jsonString}
+              </pre>
+            </div>
+          </div>
         </div>
       </div>
     </div>

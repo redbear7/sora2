@@ -198,7 +198,7 @@ const App: React.FC = () => {
             <div className="animate-fade-in w-full">
                <div className="text-center mb-12">
                  <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
-                   K-Drama 스타일 <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">스토리보드</span>
+                   K-Drama 스타일 <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">JSON 제작</span>
                  </h2>
                  <p className="text-zinc-500">한국인 배우, 현대적 복장, 2줄 헤드라인이 적용된 전문 스토리보드 제작</p>
                  {!hasKey && (
