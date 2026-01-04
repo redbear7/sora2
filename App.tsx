@@ -106,6 +106,7 @@ const App: React.FC = () => {
       return;
     }
 
+    // 상태 업데이트
     if (input instanceof File) {
       setSelectedImage(input);
       setSelectedText('');
@@ -121,6 +122,7 @@ const App: React.FC = () => {
     try {
       const data = await generateStoryboard(input, options);
       setStoryboardData(data);
+      // 생성 완료 후 히스토리에 저장
       await saveToHistory(data, options, input instanceof File ? input : null);
       setAppState(AppState.STORYBOARD);
     } catch (err: any) {
@@ -198,9 +200,9 @@ const App: React.FC = () => {
             <div className="animate-fade-in w-full">
                <div className="text-center mb-12">
                  <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-4">
-                   K-Drama 스타일 <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">JSON 제작</span>
+                   K-Drama 스타일 <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">스토리보드</span>
                  </h2>
-                 <p className="text-zinc-500">한국인 배우, 현대적 복장, 2줄 헤드라인이 적용된 전문 스토리보드 제작</p>
+                 <p className="text-zinc-500">한국인 배우, 현대적 복장 등이 적용된 전문 시네마틱 스토리보드 제작</p>
                  {!hasKey && (
                    <div className="mt-6 flex items-center justify-center gap-2 text-rose-400 text-sm bg-rose-950/20 py-2 px-4 rounded-full border border-rose-900/30 w-fit mx-auto animate-bounce">
                      <AlertCircle className="w-4 h-4" />
@@ -255,6 +257,12 @@ const App: React.FC = () => {
                 previewImageUrl={previewImageData}
                 originalText={selectedText}
                 onEditImage={() => setAppState(AppState.EDITOR)}
+                onRegenerate={(newText) => {
+                  if (selectedOptions) {
+                    // 재생성 시 inputType을 TEXT로 명시적으로 변경하여 분석 품질 향상
+                    handleGenerate(newText, { ...selectedOptions, inputType: 'TEXT' });
+                  }
+                }}
                 imageModel={selectedOptions?.imageModel || 'Nano Banana'}
                 aspectRatio={selectedOptions?.aspectRatio || '9:16'}
             />

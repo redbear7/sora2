@@ -1,7 +1,3 @@
-export interface Headline {
-  line1: string;
-  line2: string;
-}
 
 export interface SceneBreakdown {
   subjects: string;
@@ -43,7 +39,6 @@ export interface Keyframe {
 
 export interface StoryboardData {
   sourceScript?: string; 
-  headline: Headline; // 추가됨
   breakdown: SceneBreakdown;
   theme: ThemeStory;
   approach: CinematicApproach;

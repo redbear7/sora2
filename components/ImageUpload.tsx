@@ -1,3 +1,4 @@
+
 import React, { useCallback, useState, useRef } from 'react';
 import { Upload, FileImage, Video, ImageIcon, FileText, Image as ImageIconLucide, Type, Smartphone, Monitor } from 'lucide-react';
 import { GenerationOptions, VideoDuration, VideoModel, ImageGenModel, InputType, AspectRatio } from '../types';
@@ -81,7 +82,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onGenerate }) => {
         <div className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-xl flex flex-col gap-3">
           <div className="flex items-center gap-2 text-zinc-300 font-medium text-sm">
             <Smartphone className="w-4 h-4 text-indigo-400" />
-            <span>Aspect Ratio (화면 비율)</span>
+            <span>화면 비율 (Aspect Ratio)</span>
           </div>
           <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800">
             {(['9:16', '16:9'] as AspectRatio[]).map((r) => (
@@ -104,7 +105,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onGenerate }) => {
         <div className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-xl flex flex-col gap-3">
           <div className="flex items-center gap-2 text-zinc-300 font-medium text-sm">
             <Video className="w-4 h-4 text-indigo-400" />
-            <span>Target Video Model</span>
+            <span>타겟 영상 모델</span>
           </div>
           <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800">
             {(['VEO3', 'Sora2'] as VideoModel[]).map((m) => (
@@ -126,7 +127,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onGenerate }) => {
         <div className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-xl flex flex-col gap-3">
           <div className="flex items-center gap-2 text-zinc-300 font-medium text-sm">
             <FileText className="w-4 h-4 text-indigo-400" />
-            <span>Duration</span>
+            <span>영상 길이 (초)</span>
           </div>
           <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800">
             {(['8s', '10s', '15s'] as VideoDuration[]).map((d) => (
@@ -148,7 +149,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onGenerate }) => {
         <div className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-xl flex flex-col gap-3">
           <div className="flex items-center gap-2 text-zinc-300 font-medium text-sm">
             <ImageIcon className="w-4 h-4 text-pink-400" />
-            <span>Image Gen Engine</span>
+            <span>이미지 생성 엔진</span>
           </div>
           <div className="flex bg-zinc-950 p-1 rounded-lg border border-zinc-800">
             {(['Nano Banana', 'Nano Banana Pro'] as ImageGenModel[]).map((im) => (
@@ -186,7 +187,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onGenerate }) => {
               <div className="flex flex-col items-center gap-2">
                 <div className="flex items-center gap-2 px-4 py-2 bg-zinc-800 rounded-md text-xs text-zinc-500 font-mono border border-zinc-700">
                   <FileImage className="w-4 h-4" />
-                  <span>JPG, PNG supported</span>
+                  <span>JPG, PNG 파일 지원</span>
                 </div>
               </div>
 
@@ -232,7 +233,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ onGenerate }) => {
                  className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-zinc-800 disabled:text-zinc-600 disabled:cursor-not-allowed text-white rounded-xl font-bold text-lg transition-all shadow-lg shadow-indigo-900/20 flex items-center justify-center gap-2"
                >
                  <Video className="w-5 h-5" />
-                 스토리보드 생성하기
+                 스토리보드 설계 시작
                </button>
              </div>
           </div>
