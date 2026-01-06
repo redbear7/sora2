@@ -37,25 +37,12 @@ export interface Keyframe {
   sound: string;
 }
 
-export interface AuditionClip {
-  characterName: string;
-  appearance: string; 
-  clips: {
-    id: string;
-    composition: string; // 'Upper body shot' or 'Full body shot'
-    action: string; 
-    dialogue: string; 
-  }[];
-}
-
 export interface StoryboardData {
   sourceScript?: string; 
-  aspectRatio: string; // Added to the JSON output
   breakdown: SceneBreakdown;
   theme: ThemeStory;
   approach: CinematicApproach;
   keyframes: Keyframe[];
-  auditions: AuditionClip[];
 }
 
 export enum AppState {
